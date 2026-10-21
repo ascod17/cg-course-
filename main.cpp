@@ -1,6 +1,10 @@
 #include <glad/gl.h>
 #include <GLFW/glfw3.h>
 
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+
 #include <cmath>
 #include <iostream>
 
@@ -32,11 +36,10 @@ const char* vertexSrc = R"(
 #version 330 core
 layout (location = 0) in vec3 aPos;
 layout (location = 1) in vec3 aColor;
-uniform vec2 uOffset;
-uniform float uScale;
+uniform mat4 uTransform;
 out vec3 vColor;
 void main() {
-    gl_Position = vec4(aPos.xy * uScale + uOffset, aPos.z, 1.0);
+    gl_Position = uTransform * vec4(aPos, 1.0);
     vColor = aColor;
 }
 )";
@@ -159,17 +162,17 @@ int main() {
 
     unsigned int shader = makeShader(vertexSrc, fragmentSrc);
 
-    int locOffset = glGetUniformLocation(shader, "uOffset");
-    int locScale  = glGetUniformLocation(shader, "uScale");
-    float lastFrame = (float)glfwGetTime();
+    int locTransform = glGetUniformLocation(shader, "uTransform");
+    double lastTime = glfwGetTime();
     float angle = 0.0f;
     double fpsTimer = glfwGetTime();
     int frames = 0;
 
     while (!glfwWindowShouldClose(window)) {
-        float now = (float)glfwGetTime();
-        float dt = now - lastFrame;
-        lastFrame = now;
+        double now = glfwGetTime();
+        float dt = (float)(now - lastTime);
+        lastTime = now;
+
         angle += speed * dt;
 
         frames++;
@@ -184,14 +187,19 @@ int main() {
         if (spaceHeld) {
             glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
         } else {
-            Color c = backgroundColor(now);
+            Color c = backgroundColor((float)now);
             glClearColor(c.r, c.g, c.b, 1.0f);
         }
         glClear(GL_COLOR_BUFFER_BIT);
 
+        glm::mat4 m = glm::mat4(1.0f);
+        m = glm::translate(m, glm::vec3(std::cos(angle) * 0.4f,
+                                        std::sin(angle) * 0.4f, 0.0f));
+        m = glm::rotate(m, angle, glm::vec3(0.0f, 0.0f, 1.0f));
+        m = glm::scale(m, glm::vec3(0.6f, 0.6f, 1.0f));
+
         glUseProgram(shader);
-        glUniform2f(locOffset, std::cos(angle) * 0.4f, std::sin(angle) * 0.4f);
-        glUniform1f(locScale, 0.75f + 0.25f * std::sin(now * 2.0f));
+        glUniformMatrix4fv(locTransform, 1, GL_FALSE, glm::value_ptr(m));
         glBindVertexArray(vao);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
