@@ -4,7 +4,9 @@
 
 ## Видео
 
-ВИДЕОНЫ ОСЫ ЖЕРГЕ СҮЙРЕП ТАСТАҢЫЗ
+
+https://github.com/user-attachments/assets/96760712-3fac-47d9-88cc-d0e1da3e90a2
+
 
 ## Басқару
 
