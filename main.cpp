@@ -1,5 +1,4 @@
 // «Көлеңке» — қараңғыдағы платформер. C++17, OpenGL 3.3 core, GLFW + GLEW + GLM
-// Түстер: тек ақ, қара, сұр
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -10,10 +9,9 @@
 #include <cstdio>
 #include <vector>
 
-// ---------------- Деректер (1–2-апта) ----------------
 struct Rect  { float x, y, w, h; };
 struct Theme { glm::vec3 bg, plat, edge, spike, player, exit, drifter; };
-// Mover: синус бойынша тербелетін объект (платформа немесе «елес»)
+// Mover: синус бойынша тербелетін объект 
 struct Mover { float x0, y0, dx, dy, speed, w, h; float x = 0, y = 0, px = 0, py = 0; };
 struct Spike { float x, y; int n; };             // n — қатардағы тікенек саны
 struct Level {
@@ -60,7 +58,7 @@ const std::vector<Level> LEVELS = {
         {2270, 140, 0, 70, 1.8f, 14, 0} } },
 };
 
-// ---------------- Ойын күйі ----------------
+// Ойын күйі
 GLFWwindow* win = nullptr;
 GLuint prog = 0, vao = 0, vbo = 0;
 GLint  locT, locDark, locPlayer, locExit, locRadius, locAlpha;   // uniform орындары (кэш)
@@ -72,7 +70,7 @@ int   cur = 0, deaths = 0;
 float camX = 0, timeT = 0, reveal = 0, winT = 0;
 bool  victory = false;
 
-// ---------------- Шейдерлер (3-апта) ----------------
+//  Шейдерлер 
 const char* VS = R"(#version 330 core
 layout(location = 0) in vec2 aPos;
 layout(location = 1) in vec3 aColor;
@@ -126,7 +124,7 @@ GLuint makeShader() {
     return p;
 }
 
-// ---------------- Буфер және сызу (2-апта) ----------------
+//  Буфер және сызу 
 void flush() {                            // бір VAO/VBO, бір glDrawArrays
     if (verts.empty()) return;
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
@@ -160,13 +158,13 @@ void ring(float cx, float cy, float r, float th, glm::vec3 c, int seg = 48) {
     }
 }
 
-// ---------------- Матрицалар (6-апта) ----------------
+// Матрицалар 
 void use(const glm::mat4& m) {            // алдымен жиналғанды сызып, сосын матрицаны ауыстырамыз
     flush();
     glUniformMatrix4fv(locT, 1, GL_FALSE, glm::value_ptr(m));
 }
 
-// ---------------- Терезе тақырыбы (1-апта) ----------------
+// Терезе тақырыбы
 void setState(const char* msg) {
     char buf[256];
     if (victory)
@@ -177,7 +175,7 @@ void setState(const char* msg) {
     glfwSetWindowTitle(win, buf);
 }
 
-// ---------------- Физика ----------------
+// Физика
 Rect box() { return {pl.x, pl.y, pl.w, pl.h}; }
 Rect moverRect(const Mover& m) { return {m.x, m.y, m.w, m.h}; }
 bool overlap(Rect a, Rect b) {
@@ -202,7 +200,7 @@ void resetLevel() {
     lv = LEVELS[cur]; pl = Player();
     pl.x = lv.start.x; pl.y = lv.start.y;
     reveal = 1.0f;                        // деңгей басында карта бір сәт көрінеді
-    updateMovers(); updateMovers();       // px == x болуы үшін екі рет
+    updateMovers(); updateMovers();       
     setState("A/D — жүру, Space — секіру, R — қайта");
 }
 
@@ -227,9 +225,9 @@ void solve(Rect s, bool xAxis, int moverIdx) {
     if (xAxis) {
         bool fromLeft = pl.vx > 0 || (pl.vx == 0 && b.x + b.w / 2 < s.x + s.w / 2);
         pl.x = fromLeft ? s.x - pl.w : s.x + s.w;
-    } else if (pl.vy <= 0) {              // жоғарыдан қонды
+    } else if (pl.vy <= 0) {              
         pl.y = s.y + s.h; pl.vy = 0; pl.ground = true; pl.onMover = moverIdx;
-    } else {                              // басымен соқты
+    } else {                              
         pl.y = s.y - pl.h; pl.vy = 0;
     }
 }
@@ -283,7 +281,7 @@ void step(float dt) {                     // бір физикалық қада�
     camX = std::clamp(pl.x + pl.w / 2 - W / 2, 0.0f, std::max(0.0f, lv.width - W));
 }
 
-// ---------------- Сурет салу ----------------
+//  Сурет салу 
 void drawPlatform(Rect r) {
     rect(r, T.plat);
     rect({r.x, r.y + r.h - 4, r.w, 4}, T.edge);       // ашық сұр үстіңгі жиек
@@ -346,7 +344,7 @@ void render() {
     drawDarkness();
 }
 
-// ---------------- Терезе оқиғалары (1-апта) ----------------
+// Терезе оқиғалары 
 void onKey(GLFWwindow* w, int key, int, int action, int) {
     if (action != GLFW_PRESS) return;
     if (key == GLFW_KEY_ESCAPE) glfwSetWindowShouldClose(w, 1);
