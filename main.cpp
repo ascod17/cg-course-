@@ -10,9 +10,13 @@
 
 int gWidth = 1280, gHeight = 720;
 
-float speed = 1.5f;
+float spin = 1.5f;
 float fov = 45.0f, nearPlane = 0.1f, farPlane = 100.0f;
-bool spaceHeld = false;
+bool whiteBackground = false;
+
+glm::vec3 camPos   = glm::vec3(0.0f, 0.0f, 3.0f);
+glm::vec3 camFront = glm::vec3(0.0f, 0.0f, -1.0f);
+glm::vec3 camUp    = glm::vec3(0.0f, 1.0f, 0.0f);
 
 struct Color { float r, g, b; };
 
@@ -99,9 +103,18 @@ void onResize(GLFWwindow*, int width, int height) {
 void processInput(GLFWwindow* window, float dt) {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
-    spaceHeld = (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS);
-    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) speed += 2.0f * dt;
-    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) speed -= 2.0f * dt;
+    whiteBackground = (glfwGetKey(window, GLFW_KEY_B) == GLFW_PRESS);
+
+    float speed = 2.5f * dt;
+    if (glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS) speed *= 2.0f;
+
+    glm::vec3 right = glm::normalize(glm::cross(camFront, camUp));
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) camPos += speed * camFront;
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) camPos -= speed * camFront;
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) camPos -= right * speed;
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) camPos += right * speed;
+    if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) camPos += speed * glm::vec3(0.0f, 1.0f, 0.0f);
+    if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS) camPos -= speed * glm::vec3(0.0f, 1.0f, 0.0f);
 }
 
 int main() {
@@ -219,7 +232,7 @@ int main() {
         double now = glfwGetTime();
         float dt = (float)(now - lastTime);
         lastTime = now;
-        angle += speed * dt;
+        angle += spin * dt;
 
         frames++;
         if (now - fpsTimer >= 1.0) {
@@ -230,7 +243,7 @@ int main() {
 
         processInput(window, dt);
 
-        if (spaceHeld) {
+        if (whiteBackground) {
             glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
         } else {
             Color c = backgroundColor((float)now);
@@ -240,9 +253,7 @@ int main() {
 
         float aspect = (float)gWidth / (float)gHeight;
         glm::mat4 projection = glm::perspective(glm::radians(fov), aspect, nearPlane, farPlane);
-        glm::mat4 view = glm::lookAt(glm::vec3(0.0f, 0.0f, 3.0f),
-                                     glm::vec3(0.0f, 0.0f, 0.0f),
-                                     glm::vec3(0.0f, 1.0f, 0.0f));
+        glm::mat4 view = glm::lookAt(camPos, camPos + camFront, camUp);
 
         glUseProgram(shader);
         glUniformMatrix4fv(locProj, 1, GL_FALSE, glm::value_ptr(projection));
