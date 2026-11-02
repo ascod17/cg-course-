@@ -12,7 +12,7 @@ int gWidth = 1280, gHeight = 720;
 
 float speed = 1.5f;
 float fov = 45.0f, nearPlane = 0.1f, farPlane = 100.0f;
-bool spaceHeld = false, useOrtho = false, threeCubes = false;
+bool spaceHeld = false;
 
 struct Color { float r, g, b; };
 
@@ -96,12 +96,6 @@ void onResize(GLFWwindow*, int width, int height) {
     glViewport(0, 0, width, height);
 }
 
-void onKey(GLFWwindow*, int key, int, int action, int) {
-    if (action != GLFW_PRESS) return;
-    if (key == GLFW_KEY_P) useOrtho = !useOrtho;
-    if (key == GLFW_KEY_T) threeCubes = !threeCubes;
-}
-
 void processInput(GLFWwindow* window, float dt) {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
@@ -128,7 +122,6 @@ int main() {
     }
     glfwMakeContextCurrent(window);
     glfwSetFramebufferSizeCallback(window, onResize);
-    glfwSetKeyCallback(window, onKey);
     glfwSwapInterval(0);
 
     if (gladLoadGL(glfwGetProcAddress) == 0) {
@@ -138,6 +131,10 @@ int main() {
     }
     std::cout << "OpenGL: " << glGetString(GL_VERSION) << "\n";
     std::cout << "GPU:    " << glGetString(GL_RENDERER) << "\n";
+
+    int bits = 0;
+    glGetFramebufferAttachmentParameteriv(GL_FRAMEBUFFER, GL_DEPTH, GL_FRAMEBUFFER_ATTACHMENT_DEPTH_SIZE, &bits);
+    std::cout << "depth bits: " << bits << "\n";
 
     float vertices[] = {
         -0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
@@ -179,9 +176,11 @@ int main() {
     };
 
     glm::vec3 positions[] = {
-        glm::vec3(-1.5f, 0.0f,  0.0f),
-        glm::vec3( 0.0f, 0.0f, -1.0f),
-        glm::vec3( 1.5f, 0.0f,  0.0f)
+        glm::vec3( 0.0f,  0.0f,  0.0f),
+        glm::vec3( 2.0f,  0.5f, -2.0f),
+        glm::vec3(-1.8f, -0.3f, -1.0f),
+        glm::vec3( 1.2f, -0.8f, -3.5f),
+        glm::vec3(-2.2f,  1.0f, -4.0f)
     };
 
     unsigned int vao, vbo;
@@ -205,6 +204,11 @@ int main() {
     int locModel = glGetUniformLocation(shader, "uModel");
     int locView  = glGetUniformLocation(shader, "uView");
     int locProj  = glGetUniformLocation(shader, "uProjection");
+
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+    glFrontFace(GL_CCW);
 
     double lastTime = glfwGetTime();
     double fpsTimer = lastTime;
@@ -232,12 +236,10 @@ int main() {
             Color c = backgroundColor((float)now);
             glClearColor(c.r, c.g, c.b, 1.0f);
         }
-        glClear(GL_COLOR_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         float aspect = (float)gWidth / (float)gHeight;
-        glm::mat4 projection = useOrtho
-            ? glm::ortho(-aspect, aspect, -1.0f, 1.0f, nearPlane, farPlane)
-            : glm::perspective(glm::radians(fov), aspect, nearPlane, farPlane);
+        glm::mat4 projection = glm::perspective(glm::radians(fov), aspect, nearPlane, farPlane);
         glm::mat4 view = glm::lookAt(glm::vec3(0.0f, 0.0f, 3.0f),
                                      glm::vec3(0.0f, 0.0f, 0.0f),
                                      glm::vec3(0.0f, 1.0f, 0.0f));
@@ -247,10 +249,10 @@ int main() {
         glUniformMatrix4fv(locView, 1, GL_FALSE, glm::value_ptr(view));
         glBindVertexArray(vao);
 
-        int count = threeCubes ? 3 : 1;
-        for (int i = 0; i < count; i++) {
-            glm::mat4 model = glm::translate(glm::mat4(1.0f), threeCubes ? positions[i] : glm::vec3(0.0f));
-            model = glm::rotate(model, angle * (i + 1), glm::vec3(0.0f, 1.0f, 0.0f));
+        for (int i = 0; i < 5; i++) {
+            glm::mat4 model = glm::mat4(1.0f);
+            model = glm::translate(model, positions[i]);
+            model = glm::rotate(model, angle * (0.5f + i * 0.3f), glm::vec3(0.3f, 1.0f, 0.0f));
             glUniformMatrix4fv(locModel, 1, GL_FALSE, glm::value_ptr(model));
             glDrawArrays(GL_TRIANGLES, 0, 36);
         }
