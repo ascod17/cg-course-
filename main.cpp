@@ -8,8 +8,11 @@
 #include <cmath>
 #include <iostream>
 
-const int WIDTH  = 1280;
-const int HEIGHT = 720;
+int gWidth = 1280, gHeight = 720;
+
+float speed = 1.5f;
+float fov = 45.0f, nearPlane = 0.1f, farPlane = 100.0f;
+bool spaceHeld = false, useOrtho = false, threeCubes = false;
 
 struct Color { float r, g, b; };
 
@@ -36,10 +39,12 @@ const char* vertexSrc = R"(
 #version 330 core
 layout (location = 0) in vec3 aPos;
 layout (location = 1) in vec3 aColor;
-uniform mat4 uTransform;
+uniform mat4 uModel;
+uniform mat4 uView;
+uniform mat4 uProjection;
 out vec3 vColor;
 void main() {
-    gl_Position = uTransform * vec4(aPos, 1.0);
+    gl_Position = uProjection * uView * uModel * vec4(aPos, 1.0);
     vColor = aColor;
 }
 )";
@@ -85,11 +90,17 @@ unsigned int makeShader(const char* vertexCode, const char* fragmentCode) {
 }
 
 void onResize(GLFWwindow*, int width, int height) {
+    if (width == 0 || height == 0) return;
+    gWidth = width;
+    gHeight = height;
     glViewport(0, 0, width, height);
 }
 
-bool spaceHeld = false;
-float speed = 1.5f;
+void onKey(GLFWwindow*, int key, int, int action, int) {
+    if (action != GLFW_PRESS) return;
+    if (key == GLFW_KEY_P) useOrtho = !useOrtho;
+    if (key == GLFW_KEY_T) threeCubes = !threeCubes;
+}
 
 void processInput(GLFWwindow* window, float dt) {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
@@ -109,7 +120,7 @@ int main() {
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
 #endif
 
-    GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "Компьютерлік графика", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(gWidth, gHeight, "Компьютерлік графика", nullptr, nullptr);
     if (!window) {
         std::cerr << "Терезе жасалмады\n";
         glfwTerminate();
@@ -117,6 +128,7 @@ int main() {
     }
     glfwMakeContextCurrent(window);
     glfwSetFramebufferSizeCallback(window, onResize);
+    glfwSetKeyCallback(window, onKey);
     glfwSwapInterval(0);
 
     if (gladLoadGL(glfwGetProcAddress) == 0) {
@@ -128,29 +140,57 @@ int main() {
     std::cout << "GPU:    " << glGetString(GL_RENDERER) << "\n";
 
     float vertices[] = {
-         0.3f,  0.3f, 0.0f,  1.0f, 0.0f, 0.0f,
-         0.3f, -0.3f, 0.0f,  0.0f, 1.0f, 0.0f,
-        -0.3f, -0.3f, 0.0f,  0.0f, 0.0f, 1.0f,
-        -0.3f,  0.3f, 0.0f,  1.0f, 1.0f, 0.0f
+        -0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
+         0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
+         0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
+         0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
+        -0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
+        -0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
+        -0.5f, -0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
+         0.5f, -0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
+         0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
+         0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
+        -0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
+        -0.5f, -0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
+        -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
+        -0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
+        -0.5f,  0.5f, -0.5f,  0.0f,  0.0f,  1.0f,
+        -0.5f,  0.5f, -0.5f,  0.0f,  0.0f,  1.0f,
+        -0.5f, -0.5f, -0.5f,  0.0f,  0.0f,  1.0f,
+        -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
+         0.5f, -0.5f, -0.5f,  1.0f,  1.0f,  0.0f,
+         0.5f,  0.5f, -0.5f,  1.0f,  1.0f,  0.0f,
+         0.5f,  0.5f,  0.5f,  1.0f,  1.0f,  0.0f,
+         0.5f,  0.5f,  0.5f,  1.0f,  1.0f,  0.0f,
+         0.5f, -0.5f,  0.5f,  1.0f,  1.0f,  0.0f,
+         0.5f, -0.5f, -0.5f,  1.0f,  1.0f,  0.0f,
+         0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  1.0f,
+         0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  1.0f,
+        -0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  1.0f,
+        -0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  1.0f,
+        -0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  1.0f,
+         0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  1.0f,
+        -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  1.0f,
+        -0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  1.0f,
+         0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  1.0f,
+         0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  1.0f,
+         0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  1.0f,
+        -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  1.0f
     };
 
-    unsigned int indices[] = {
-        0, 1, 3,
-        1, 2, 3
+    glm::vec3 positions[] = {
+        glm::vec3(-1.5f, 0.0f,  0.0f),
+        glm::vec3( 0.0f, 0.0f, -1.0f),
+        glm::vec3( 1.5f, 0.0f,  0.0f)
     };
 
-    unsigned int vao, vbo, ebo;
+    unsigned int vao, vbo;
     glGenVertexArrays(1, &vao);
     glGenBuffers(1, &vbo);
-    glGenBuffers(1, &ebo);
 
     glBindVertexArray(vao);
-
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
     const int STRIDE = 6 * sizeof(float);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, STRIDE, (void*)0);
@@ -162,24 +202,26 @@ int main() {
 
     unsigned int shader = makeShader(vertexSrc, fragmentSrc);
 
-    int locTransform = glGetUniformLocation(shader, "uTransform");
+    int locModel = glGetUniformLocation(shader, "uModel");
+    int locView  = glGetUniformLocation(shader, "uView");
+    int locProj  = glGetUniformLocation(shader, "uProjection");
+
     double lastTime = glfwGetTime();
-    float angle = 0.0f;
-    double fpsTimer = glfwGetTime();
+    double fpsTimer = lastTime;
     int frames = 0;
+    float angle = 0.0f;
 
     while (!glfwWindowShouldClose(window)) {
         double now = glfwGetTime();
         float dt = (float)(now - lastTime);
         lastTime = now;
-
         angle += speed * dt;
 
         frames++;
-        if (glfwGetTime() - fpsTimer >= 1.0) {
+        if (now - fpsTimer >= 1.0) {
             std::cout << "FPS: " << frames << "\n";
             frames = 0;
-            fpsTimer = glfwGetTime();
+            fpsTimer = now;
         }
 
         processInput(window, dt);
@@ -192,16 +234,26 @@ int main() {
         }
         glClear(GL_COLOR_BUFFER_BIT);
 
-        glm::mat4 m = glm::mat4(1.0f);
-        m = glm::translate(m, glm::vec3(std::cos(angle) * 0.4f,
-                                        std::sin(angle) * 0.4f, 0.0f));
-        m = glm::rotate(m, angle, glm::vec3(0.0f, 0.0f, 1.0f));
-        m = glm::scale(m, glm::vec3(0.6f, 0.6f, 1.0f));
+        float aspect = (float)gWidth / (float)gHeight;
+        glm::mat4 projection = useOrtho
+            ? glm::ortho(-aspect, aspect, -1.0f, 1.0f, nearPlane, farPlane)
+            : glm::perspective(glm::radians(fov), aspect, nearPlane, farPlane);
+        glm::mat4 view = glm::lookAt(glm::vec3(0.0f, 0.0f, 3.0f),
+                                     glm::vec3(0.0f, 0.0f, 0.0f),
+                                     glm::vec3(0.0f, 1.0f, 0.0f));
 
         glUseProgram(shader);
-        glUniformMatrix4fv(locTransform, 1, GL_FALSE, glm::value_ptr(m));
+        glUniformMatrix4fv(locProj, 1, GL_FALSE, glm::value_ptr(projection));
+        glUniformMatrix4fv(locView, 1, GL_FALSE, glm::value_ptr(view));
         glBindVertexArray(vao);
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+
+        int count = threeCubes ? 3 : 1;
+        for (int i = 0; i < count; i++) {
+            glm::mat4 model = glm::translate(glm::mat4(1.0f), threeCubes ? positions[i] : glm::vec3(0.0f));
+            model = glm::rotate(model, angle * (i + 1), glm::vec3(0.0f, 1.0f, 0.0f));
+            glUniformMatrix4fv(locModel, 1, GL_FALSE, glm::value_ptr(model));
+            glDrawArrays(GL_TRIANGLES, 0, 36);
+        }
 
         glfwSwapBuffers(window);
         glfwPollEvents();
@@ -209,7 +261,6 @@ int main() {
 
     glDeleteVertexArrays(1, &vao);
     glDeleteBuffers(1, &vbo);
-    glDeleteBuffers(1, &ebo);
     glDeleteProgram(shader);
 
     glfwTerminate();
