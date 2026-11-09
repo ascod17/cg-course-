@@ -18,6 +18,12 @@ glm::vec3 camPos   = glm::vec3(0.0f, 0.0f, 3.0f);
 glm::vec3 camFront = glm::vec3(0.0f, 0.0f, -1.0f);
 glm::vec3 camUp    = glm::vec3(0.0f, 1.0f, 0.0f);
 
+float yaw   = -90.0f;
+float pitch = 0.0f;
+float lastX = gWidth / 2.0f;
+float lastY = gHeight / 2.0f;
+bool firstMouse = true;
+
 struct Color { float r, g, b; };
 
 Color mix(Color a, Color b, float k) {
@@ -100,6 +106,38 @@ void onResize(GLFWwindow*, int width, int height) {
     glViewport(0, 0, width, height);
 }
 
+void mouse_callback(GLFWwindow*, double xpos, double ypos) {
+    if (firstMouse) {
+        lastX = (float)xpos;
+        lastY = (float)ypos;
+        firstMouse = false;
+    }
+
+    float xoffset = (float)xpos - lastX;
+    float yoffset = lastY - (float)ypos;
+    lastX = (float)xpos;
+    lastY = (float)ypos;
+
+    const float sensitivity = 0.1f;
+    yaw   += xoffset * sensitivity;
+    pitch += yoffset * sensitivity;
+
+    if (pitch > 89.0f) pitch = 89.0f;
+    if (pitch < -89.0f) pitch = -89.0f;
+
+    glm::vec3 dir;
+    dir.x = std::cos(glm::radians(yaw)) * std::cos(glm::radians(pitch));
+    dir.y = std::sin(glm::radians(pitch));
+    dir.z = std::sin(glm::radians(yaw)) * std::cos(glm::radians(pitch));
+    camFront = glm::normalize(dir);
+}
+
+void scroll_callback(GLFWwindow*, double, double yoffset) {
+    fov -= (float)yoffset;
+    if (fov < 1.0f) fov = 1.0f;
+    if (fov > 45.0f) fov = 45.0f;
+}
+
 void processInput(GLFWwindow* window, float dt) {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
         glfwSetWindowShouldClose(window, true);
@@ -135,6 +173,9 @@ int main() {
     }
     glfwMakeContextCurrent(window);
     glfwSetFramebufferSizeCallback(window, onResize);
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+    glfwSetCursorPosCallback(window, mouse_callback);
+    glfwSetScrollCallback(window, scroll_callback);
     glfwSwapInterval(0);
 
     if (gladLoadGL(glfwGetProcAddress) == 0) {
