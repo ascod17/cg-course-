@@ -1,6 +1,9 @@
 #include <glad/gl.h>
 #include <GLFW/glfw3.h>
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "external/stb/stb_image.h"
+
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -48,22 +51,23 @@ Color backgroundColor(float t) {
 const char* vertexSrc = R"(
 #version 330 core
 layout (location = 0) in vec3 aPos;
-layout (location = 1) in vec3 aColor;
+layout (location = 1) in vec2 aTexCoord;
 uniform mat4 uModel;
 uniform mat4 uView;
 uniform mat4 uProjection;
-out vec3 vColor;
+out vec2 vTexCoord;
 void main() {
     gl_Position = uProjection * uView * uModel * vec4(aPos, 1.0);
-    vColor = aColor;
+    vTexCoord = aTexCoord;
 }
 )";
 
 const char* fragmentSrc = R"(
 #version 330 core
-in vec3 vColor;
+in vec2 vTexCoord;
 out vec4 FragColor;
-void main() { FragColor = vec4(vColor, 1.0); }
+uniform sampler2D ourTexture;
+void main() { FragColor = texture(ourTexture, vTexCoord); }
 )";
 
 unsigned int compileStage(GLenum type, const char* src) {
@@ -97,6 +101,33 @@ unsigned int makeShader(const char* vertexCode, const char* fragmentCode) {
     glDeleteShader(vs);
     glDeleteShader(fs);
     return prog;
+}
+
+unsigned int loadTexture(const char* path) {
+    stbi_set_flip_vertically_on_load(true);
+    int width, height, channels;
+    unsigned char* data = stbi_load(path, &width, &height, &channels, 0);
+    if (!data) {
+        std::cerr << "Текстура жүктелмеді: " << path << "\n";
+        return 0;
+    }
+    GLenum format = (channels == 4) ? GL_RGBA : (channels == 1) ? GL_RED : GL_RGB;
+
+    unsigned int texture;
+    glGenTextures(1, &texture);
+    glBindTexture(GL_TEXTURE_2D, texture);
+
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+    glGenerateMipmap(GL_TEXTURE_2D);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    stbi_image_free(data);
+    return texture;
 }
 
 void onResize(GLFWwindow*, int width, int height) {
@@ -191,42 +222,42 @@ int main() {
     std::cout << "depth bits: " << bits << "\n";
 
     float vertices[] = {
-        -0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
-         0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
-         0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
-         0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
-        -0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
-        -0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
-        -0.5f, -0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
-         0.5f, -0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
-         0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
-         0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
-        -0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
-        -0.5f, -0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
-        -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
-        -0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
-        -0.5f,  0.5f, -0.5f,  0.0f,  0.0f,  1.0f,
-        -0.5f,  0.5f, -0.5f,  0.0f,  0.0f,  1.0f,
-        -0.5f, -0.5f, -0.5f,  0.0f,  0.0f,  1.0f,
-        -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
-         0.5f, -0.5f, -0.5f,  1.0f,  1.0f,  0.0f,
-         0.5f,  0.5f, -0.5f,  1.0f,  1.0f,  0.0f,
-         0.5f,  0.5f,  0.5f,  1.0f,  1.0f,  0.0f,
-         0.5f,  0.5f,  0.5f,  1.0f,  1.0f,  0.0f,
-         0.5f, -0.5f,  0.5f,  1.0f,  1.0f,  0.0f,
-         0.5f, -0.5f, -0.5f,  1.0f,  1.0f,  0.0f,
-         0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  1.0f,
-         0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  1.0f,
-        -0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  1.0f,
-        -0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  1.0f,
-        -0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  1.0f,
-         0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  1.0f,
-        -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  1.0f,
-        -0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  1.0f,
-         0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  1.0f,
-         0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  1.0f,
-         0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  1.0f,
-        -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  1.0f
+         -0.5f,   0.5f,  -0.5f,  1.0f, 1.0f,
+          0.5f,   0.5f,  -0.5f,  0.0f, 1.0f,
+          0.5f,  -0.5f,  -0.5f,  0.0f, 0.0f,
+          0.5f,  -0.5f,  -0.5f,  0.0f, 0.0f,
+         -0.5f,  -0.5f,  -0.5f,  1.0f, 0.0f,
+         -0.5f,   0.5f,  -0.5f,  1.0f, 1.0f,
+         -0.5f,  -0.5f,   0.5f,  0.0f, 0.0f,
+          0.5f,  -0.5f,   0.5f,  1.0f, 0.0f,
+          0.5f,   0.5f,   0.5f,  1.0f, 1.0f,
+          0.5f,   0.5f,   0.5f,  1.0f, 1.0f,
+         -0.5f,   0.5f,   0.5f,  0.0f, 1.0f,
+         -0.5f,  -0.5f,   0.5f,  0.0f, 0.0f,
+         -0.5f,  -0.5f,   0.5f,  1.0f, 0.0f,
+         -0.5f,   0.5f,   0.5f,  1.0f, 1.0f,
+         -0.5f,   0.5f,  -0.5f,  0.0f, 1.0f,
+         -0.5f,   0.5f,  -0.5f,  0.0f, 1.0f,
+         -0.5f,  -0.5f,  -0.5f,  0.0f, 0.0f,
+         -0.5f,  -0.5f,   0.5f,  1.0f, 0.0f,
+          0.5f,  -0.5f,  -0.5f,  1.0f, 0.0f,
+          0.5f,   0.5f,  -0.5f,  1.0f, 1.0f,
+          0.5f,   0.5f,   0.5f,  0.0f, 1.0f,
+          0.5f,   0.5f,   0.5f,  0.0f, 1.0f,
+          0.5f,  -0.5f,   0.5f,  0.0f, 0.0f,
+          0.5f,  -0.5f,  -0.5f,  1.0f, 0.0f,
+          0.5f,  -0.5f,  -0.5f,  1.0f, 1.0f,
+          0.5f,  -0.5f,   0.5f,  1.0f, 0.0f,
+         -0.5f,  -0.5f,   0.5f,  0.0f, 0.0f,
+         -0.5f,  -0.5f,   0.5f,  0.0f, 0.0f,
+         -0.5f,  -0.5f,  -0.5f,  0.0f, 1.0f,
+          0.5f,  -0.5f,  -0.5f,  1.0f, 1.0f,
+         -0.5f,   0.5f,  -0.5f,  0.0f, 0.0f,
+         -0.5f,   0.5f,   0.5f,  0.0f, 1.0f,
+          0.5f,   0.5f,   0.5f,  1.0f, 1.0f,
+          0.5f,   0.5f,   0.5f,  1.0f, 1.0f,
+          0.5f,   0.5f,  -0.5f,  1.0f, 0.0f,
+         -0.5f,   0.5f,  -0.5f,  0.0f, 0.0f
     };
 
     glm::vec3 positions[] = {
@@ -245,19 +276,21 @@ int main() {
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
-    const int STRIDE = 6 * sizeof(float);
+    const int STRIDE = 5 * sizeof(float);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, STRIDE, (void*)0);
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, STRIDE, (void*)(3 * sizeof(float)));
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, STRIDE, (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
 
     glBindVertexArray(0);
 
     unsigned int shader = makeShader(vertexSrc, fragmentSrc);
+    unsigned int texture = loadTexture("textures/wall.png");
 
     int locModel = glGetUniformLocation(shader, "uModel");
     int locView  = glGetUniformLocation(shader, "uView");
     int locProj  = glGetUniformLocation(shader, "uProjection");
+    int locTex   = glGetUniformLocation(shader, "ourTexture");
 
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
@@ -297,6 +330,9 @@ int main() {
         glm::mat4 view = glm::lookAt(camPos, camPos + camFront, camUp);
 
         glUseProgram(shader);
+        glUniform1i(locTex, 0);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, texture);
         glUniformMatrix4fv(locProj, 1, GL_FALSE, glm::value_ptr(projection));
         glUniformMatrix4fv(locView, 1, GL_FALSE, glm::value_ptr(view));
         glBindVertexArray(vao);
@@ -315,6 +351,7 @@ int main() {
 
     glDeleteVertexArrays(1, &vao);
     glDeleteBuffers(1, &vbo);
+    glDeleteTextures(1, &texture);
     glDeleteProgram(shader);
 
     glfwTerminate();
